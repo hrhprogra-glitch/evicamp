@@ -1,4 +1,8 @@
+// src/components/panel-de-control-entrada.tsx
 import React, { useState, useRef, useEffect } from 'react';
+import { Ventas } from '../components/ventas'; 
+// 1. IMPORTAMOS EL NUEVO COMPONENTE
+import { Inventario } from '../components/Inventario';
 
 interface PanelProps {
   userEmail: string;
@@ -18,7 +22,6 @@ interface WindowItem {
   zIndex: number;
 }
 
-// Tipos de dirección para redimensionar
 type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 interface DragAction {
@@ -35,7 +38,6 @@ interface DragAction {
   startWindowY: number;
 }
 
-// Estructura para la sombra de previsualización (Ghost Snap)
 interface PreviewRect {
   visible: boolean;
   x: number;
@@ -96,8 +98,8 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
       title,
       x: 50 + (windows.length * 30),
       y: 50 + (windows.length * 30),
-      width: 600,
-      height: 450,
+      width: 700, 
+      height: 550,
       isMaximized: false,
       zIndex: maxZIndex.current + 1
     };
@@ -115,7 +117,6 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     bringToFront(id);
   };
 
-  // --- LÓGICA DE SNAP (AJUSTAR) ---
   const applySnap = (id: number, type: string) => {
     if (!mainRef.current) return;
     const { clientWidth: W, clientHeight: H } = mainRef.current;
@@ -124,18 +125,15 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     let maximize = false;
 
     switch (type) {
+      case 'full':   maximize = true; break;
       case 'left':   newX=0; newY=0; newW=W/2; newH=H; break;
       case 'right':  newX=W/2; newY=0; newW=W/2; newH=H; break;
       case 'top':    maximize = true; break; 
       case 'bottom': newX=0; newY=H/2; newW=W; newH=H/2; break; 
-      
-      // Cuadrantes
       case 'tl': newX=0; newY=0; newW=W/2; newH=H/2; break;
       case 'tr': newX=W/2; newY=0; newW=W/2; newH=H/2; break;
       case 'bl': newX=0; newY=H/2; newW=W/2; newH=H/2; break;
       case 'br': newX=W/2; newY=H/2; newW=W/2; newH=H/2; break;
-
-      // Tercios
       case 'col1': newX=0; newY=0; newW=W/3; newH=H; break;
       case 'col2': newX=W/3; newY=0; newW=W/3; newH=H; break;
       case 'col3': newX=(W/3)*2; newY=0; newW=W/3; newH=H; break;
@@ -147,7 +145,6 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     bringToFront(id);
   };
 
-  // --- LÓGICA DE HOVER MENU ---
   const handleSnapMouseEnter = (id: number) => {
     if (snapTimeoutRef.current) clearTimeout(snapTimeoutRef.current);
     bringToFront(id);
@@ -157,7 +154,7 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     snapTimeoutRef.current = setTimeout(() => setSnapMenuOpenId(null), 300);
   };
 
-  // --- MOUSE START ---
+  // --- MOUSE ---
   const startMove = (e: React.MouseEvent, w: WindowItem) => {
     if (w.isMaximized) return;
     if ((e.target as HTMLElement).closest('button')) return; 
@@ -183,7 +180,6 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     });
   };
 
-  // --- MOUSE MOVE ---
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!dragAction.type || dragAction.windowId === null) return;
     const { windowId, type, resizeDir, startX, startY, startW, startH, startWindowX, startWindowY } = dragAction;
@@ -191,10 +187,8 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     if (type === 'move') {
       const newX = e.clientX - dragAction.offsetX;
       const newY = e.clientY - dragAction.offsetY;
-      
       setWindows(prev => prev.map(w => w.id === windowId ? { ...w, x: newX, y: newY } : w));
 
-      // PREVIEW FANTASMA
       if (mainRef.current) {
         const { left, top, width: screenW, height: screenH } = mainRef.current.getBoundingClientRect();
         const mouseX = e.clientX - left; 
@@ -204,32 +198,24 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
         let snapType = '';
         let pX=0, pY=0, pW=0, pH=0;
 
-        // Esquinas (Prioridad alta)
         if (mouseY < margin && mouseX < margin) { snapType='tl'; pX=0; pY=0; pW=screenW/2; pH=screenH/2; }
         else if (mouseY < margin && mouseX > screenW - margin) { snapType='tr'; pX=screenW/2; pY=0; pW=screenW/2; pH=screenH/2; }
         else if (mouseY > screenH - margin && mouseX < margin) { snapType='bl'; pX=0; pY=screenH/2; pW=screenW/2; pH=screenH/2; }
         else if (mouseY > screenH - margin && mouseX > screenW - margin) { snapType='br'; pX=screenW/2; pY=screenH/2; pW=screenW/2; pH=screenH/2; }
-        
-        // Bordes (Prioridad baja)
-        else if (mouseY < margin) { snapType='top'; pX=0; pY=0; pW=screenW; pH=screenH; } 
+        else if (mouseY < margin) { snapType='full'; pX=0; pY=0; pW=screenW; pH=screenH; } 
         else if (mouseX < margin) { snapType='left'; pX=0; pY=0; pW=screenW/2; pH=screenH; }
         else if (mouseX > screenW - margin) { snapType='right'; pX=screenW/2; pY=0; pW=screenW/2; pH=screenH; }
 
-        if (snapType) {
-          setPreviewRect({ visible: true, x: pX, y: pY, width: pW, height: pH, snapType });
-        } else {
-          setPreviewRect({ visible: false, x:0, y:0, width:0, height:0 });
-        }
+        if (snapType) setPreviewRect({ visible: true, x: pX, y: pY, width: pW, height: pH, snapType });
+        else setPreviewRect({ visible: false, x:0, y:0, width:0, height:0 });
       }
     } 
     else if (type === 'resize' && resizeDir) {
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
-
       setWindows(prev => prev.map(w => {
         if (w.id !== windowId) return w;
         let newW = startW, newH = startH, newX = startWindowX, newY = startWindowY;
-
         if (resizeDir.includes('e')) newW = Math.max(minWidth, startW + deltaX);
         if (resizeDir.includes('w')) {
           const proposedW = startW - deltaX;
@@ -258,15 +244,17 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
   // --- RENDER CONTENT ---
   const renderWindowContent = (type: string) => {
     switch (type) {
-      case 'inicio': return <div style={{padding:'20px'}}><h3>Inicio</h3><div style={{display:'grid', gap:'10px', gridTemplateColumns:'1fr 1fr'}}><div style={{background:'#e8f5e9', padding:'20px'}}>Ventas: $1200</div><div style={{background:'#e3f2fd', padding:'20px'}}>Pedidos: 5</div></div></div>;
-      case 'venta': return <div style={{padding:'20px'}}><input placeholder="Producto..." style={{width:'100%', padding:'8px', marginBottom:'10px'}}/><h3>Venta</h3></div>;
-      case 'inventario': return <div style={{padding:'20px'}}><h3>Inventario</h3><ul><li>Prod A (50)</li><li>Prod B (20)</li></ul></div>;
+      case 'inicio': return <div style={{padding:'20px'}}><h3>Inicio</h3><p>Resumen...</p></div>;
+      case 'venta': return <Ventas />;
+      
+      // 2. USAMOS EL COMPONENTE INVENTARIO
+      case 'inventario': return <Inventario />;
+      
       case 'perfil': return <div style={{padding:'20px'}}><h3>{userEmail}</h3></div>;
       default: return null;
     }
   };
 
-  // --- STYLES ---
   const getMenuButtonStyle = (type: string) => {
     const isActive = windows.some(w => w.type === type);
     return {
@@ -284,12 +272,20 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
     fontSize: '14px', transition: 'background 0.2s', outline: 'none', userSelect: 'none' 
   };
 
+  const snapOptionStyle = {
+    background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', 
+    borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'all 0.2s', overflow: 'hidden'
+  };
+
+  const activePartStyle = { background: 'rgba(0, 120, 255, 0.6)', backdropFilter: 'blur(2px)' };
+  const inactivePartStyle = { background: 'rgba(255, 255, 255, 0.1)' };
+
   return (
     <div 
       style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'Segoe UI, sans-serif', overflow: 'hidden', userSelect: 'none' }}
       onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
     >
-      {/* SIDEBAR */}
       <aside style={{
         width: isSidebarOpen ? '260px' : '80px', backgroundColor: '#1b4332', color: 'white',
         display: 'flex', flexDirection: 'column', padding: '15px', zIndex: 9999,
@@ -308,26 +304,16 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
         <button onClick={onLogout} style={{ marginTop: 'auto', display: 'flex', padding: '12px', backgroundColor: '#c62828', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', justifyContent: isSidebarOpen ? 'flex-start' : 'center' }}><span style={{ fontSize: '1.2rem' }}>🚪</span>{isSidebarOpen && <span style={{ marginLeft: '15px', fontWeight: 'bold' }}>Salir</span>}</button>
       </aside>
 
-      {/* AREA DE ESCRITORIO */}
       <main ref={mainRef} style={{ flex: 1, backgroundColor: '#f4f6f8', position: 'relative', overflow: 'hidden' }}>
         
         {windows.length === 0 && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ccc' }}><h1 style={{ fontSize: '4rem', margin: 0 }}>👋</h1><p>Panel de Control</p></div>}
 
-        {/* --- SHADOW PREVIEW (MEJORADO: EFECTO SUTIL) --- */}
         {previewRect.visible && (
           <div style={{
             position: 'absolute',
             left: previewRect.x, top: previewRect.y, width: previewRect.width, height: previewRect.height,
-            
-            // ESTILO NUEVO: Sutil y transparente
-            backgroundColor: 'rgba(0, 0, 0, 0.05)', // Sombra negra muy tenue
-            border: '1px solid rgba(0, 0, 0, 0.1)', // Borde gris apenas visible
-            backdropFilter: 'blur(4px)', // Efecto vidrio esmerilado
-            
-            borderRadius: '8px',
-            zIndex: 9990, 
-            transition: 'all 0.1s ease-out',
-            pointerEvents: 'none'
+            backgroundColor: 'rgba(0, 0, 0, 0.05)', border: '1px solid rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(4px)',
+            borderRadius: '8px', zIndex: 9990, transition: 'all 0.1s ease-out', pointerEvents: 'none'
           }} />
         )}
 
@@ -345,7 +331,6 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
             }}
             onMouseDown={() => bringToFront(win.id)}
           >
-            {/* HEADER */}
             <div
               onMouseDown={(e) => startMove(e, win)}
               onDoubleClick={() => toggleMaximize(win.id)}
@@ -353,6 +338,7 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
                 backgroundColor: '#1b4332', color: 'white', height: '40px', cursor: win.isMaximized ? 'default' : 'move', 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '15px', overflow: 'visible',
                 borderTopLeftRadius: win.isMaximized ? 0 : '8px', borderTopRightRadius: win.isMaximized ? 0 : '8px',
+                position: 'relative', zIndex: 50
               }}
             >
               <span style={{ fontWeight: '600', fontSize: '0.9rem', flex: 1 }}>{win.title}</span>
@@ -362,7 +348,6 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
                 onDoubleClick={(e) => e.stopPropagation()}
                 style={{ display: 'flex', height: '100%', alignItems: 'flex-start' }}
               >
-                {/* --- BOTÓN SNAP --- */}
                 <div 
                   style={{ position: 'relative', height: '100%' }}
                   onMouseEnter={() => handleSnapMouseEnter(win.id)}
@@ -372,30 +357,52 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
                   
                   {snapMenuOpenId === win.id && (
                     <div style={{
-                      position: 'absolute', top: '40px', right: '0', background: '#222', padding: '10px', borderRadius: '8px',
-                      zIndex: 99999, boxShadow: '0 5px 15px rgba(0,0,0,0.5)', width: '170px',
+                      position: 'absolute', top: '40px', right: '0', 
+                      background: 'rgba(20, 20, 20, 0.85)', backdropFilter: 'blur(15px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      padding: '10px', borderRadius: '8px',
+                      zIndex: 99999, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)', width: '170px',
                       display: 'flex', flexDirection: 'column', gap: '10px', cursor: 'default'
                     }} onMouseDown={(e) => e.stopPropagation()}>
                       
-                      {/* MITADES */}
-                      <div style={{display:'flex', gap:'5px', height:'40px'}}>
-                         <div onClick={() => applySnap(win.id, 'left')} title="Izquierda" style={{flex:1, display:'flex', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{flex:1, background:'#4caf50'}}></div><div style={{flex:1}}></div></div>
-                         <div onClick={() => applySnap(win.id, 'right')} title="Derecha" style={{flex:1, display:'flex', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{flex:1}}></div><div style={{flex:1, background:'#4caf50'}}></div></div>
+                      <div onClick={() => applySnap(win.id, 'full')} title="Pantalla Completa" style={{...snapOptionStyle, height: '30px', background: 'rgba(255,255,255,0.05)'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                         <div style={{...activePartStyle, width: '90%', height: '80%', borderRadius:'2px'}}></div>
                       </div>
 
-                      {/* TERCIOS */}
                       <div style={{display:'flex', gap:'5px', height:'40px'}}>
-                         <div onClick={() => applySnap(win.id, 'col1')} title="Col 1" style={{flex:1, display:'flex', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{flex:1, background:'#4caf50'}}></div><div style={{flex:1}}></div><div style={{flex:1}}></div></div>
-                         <div onClick={() => applySnap(win.id, 'col2')} title="Col 2" style={{flex:1, display:'flex', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{flex:1}}></div><div style={{flex:1, background:'#4caf50'}}></div><div style={{flex:1}}></div></div>
-                         <div onClick={() => applySnap(win.id, 'col3')} title="Col 3" style={{flex:1, display:'flex', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{flex:1}}></div><div style={{flex:1}}></div><div style={{flex:1, background:'#4caf50'}}></div></div>
+                         <div onClick={() => applySnap(win.id, 'left')} title="Izquierda" style={{...snapOptionStyle, flex:1, display:'flex'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={{...activePartStyle, flex:1, height:'100%'}}></div><div style={{...inactivePartStyle, flex:1, height:'100%'}}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'right')} title="Derecha" style={{...snapOptionStyle, flex:1, display:'flex'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={{...inactivePartStyle, flex:1, height:'100%'}}></div><div style={{...activePartStyle, flex:1, height:'100%'}}></div>
+                         </div>
                       </div>
 
-                      {/* CUADRANTES */}
+                      <div style={{display:'flex', gap:'5px', height:'40px'}}>
+                         <div onClick={() => applySnap(win.id, 'col1')} title="Col 1" style={{...snapOptionStyle, flex:1, display:'flex'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={{...activePartStyle, flex:1}}></div><div style={{...inactivePartStyle, flex:1}}></div><div style={{...inactivePartStyle, flex:1}}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'col2')} title="Col 2" style={{...snapOptionStyle, flex:1, display:'flex'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={{...inactivePartStyle, flex:1}}></div><div style={{...activePartStyle, flex:1}}></div><div style={{...inactivePartStyle, flex:1}}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'col3')} title="Col 3" style={{...snapOptionStyle, flex:1, display:'flex'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={{...inactivePartStyle, flex:1}}></div><div style={{...inactivePartStyle, flex:1}}></div><div style={{...activePartStyle, flex:1}}></div>
+                         </div>
+                      </div>
+
                       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'5px', height:'60px'}}>
-                         <div onClick={() => applySnap(win.id, 'tl')} title="TL" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div style={{background:'#4caf50'}}></div><div></div><div></div><div></div></div>
-                         <div onClick={() => applySnap(win.id, 'tr')} title="TR" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div></div><div style={{background:'#4caf50'}}></div><div></div><div></div></div>
-                         <div onClick={() => applySnap(win.id, 'bl')} title="BL" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div></div><div></div><div style={{background:'#4caf50'}}></div><div></div></div>
-                         <div onClick={() => applySnap(win.id, 'br')} title="BR" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', cursor:'pointer', border:'1px solid #555', borderRadius:'4px'}}><div></div><div></div><div></div><div style={{background:'#4caf50'}}></div></div>
+                         <div onClick={() => applySnap(win.id, 'tl')} title="TL" style={{...snapOptionStyle, display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', gap:'1px'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={activePartStyle}></div><div style={inactivePartStyle}></div><div style={inactivePartStyle}></div><div style={inactivePartStyle}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'tr')} title="TR" style={{...snapOptionStyle, display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', gap:'1px'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={inactivePartStyle}></div><div style={activePartStyle}></div><div style={inactivePartStyle}></div><div style={inactivePartStyle}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'bl')} title="BL" style={{...snapOptionStyle, display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', gap:'1px'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={inactivePartStyle}></div><div style={inactivePartStyle}></div><div style={activePartStyle}></div><div style={inactivePartStyle}></div>
+                         </div>
+                         <div onClick={() => applySnap(win.id, 'br')} title="BR" style={{...snapOptionStyle, display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', gap:'1px'}} onMouseEnter={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={(e)=>e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
+                           <div style={inactivePartStyle}></div><div style={inactivePartStyle}></div><div style={inactivePartStyle}></div><div style={activePartStyle}></div>
+                         </div>
                       </div>
                     </div>
                   )}
@@ -406,13 +413,11 @@ export function PanelDeControlEntrada({ userEmail, onLogout }: PanelProps) {
               </div>
             </div>
 
-            {/* CONTENIDO */}
-            <div style={{ flex: 1, overflow: 'auto', position: 'relative', background: 'white', borderBottomLeftRadius: win.isMaximized?0:'8px', borderBottomRightRadius: win.isMaximized?0:'8px' }}>
+            <div style={{ flex: 1, overflow: 'auto', position: 'relative', background: 'white', borderBottomLeftRadius: win.isMaximized?0:'8px', borderBottomRightRadius: win.isMaximized?0:'8px', zIndex: 1 }}>
               {renderWindowContent(win.type)}
               {(dragAction.type !== null) && <div style={{ position: 'absolute', inset: 0, zIndex: 9999 }} />}
             </div>
             
-            {/* ZONA DE REDIMENSIÓN */}
             {!win.isMaximized && (
               <>
                 <div onMouseDown={(e) => startResize(e, win, 'n')} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '5px', cursor: 'n-resize', zIndex: 10 }} />
